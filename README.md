@@ -8,7 +8,7 @@
 
 # Overview
 
-![](.\image\overview.png)	
+![](./image/overview.png)	
 
 <center><p>Figure1.The overall architecture</p></center>				
 
