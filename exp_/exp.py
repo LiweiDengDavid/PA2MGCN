@@ -15,40 +15,35 @@ class EXP():
     def __init__(self,args):
         assert args.resume_dir==args.output_dir
         self.agrs=args
-        tu.dist.init_distributed_mode(args)  # 初始化分布式训练
-        # seed = tu.dist.get_rank() + args.seed  # 0+args.seed
-        # tu.model_tool.seed_everything(seed)  # 设置随机数种子，便于可重复实验
-
-        # train_sampler,test_sampler是分布式训练时使用的，未分布式训练时，其都为None
+        tu.dist.init_distributed_mode(args)
         # get_data
         (adj, self.train_dataloader,self.val_dataloader, self.test_dataloader,
          self.train_sampler,self.val_sampler,self.test_sampler) = build_dataloader(args)
-        self.adj=adj # TODO 这里的adj就是普通的adj
+        self.adj=adj # get adj
 
         # get_model
-        self.build_model(args, adj)  # 得到对应的模型
-        self.model.to(device)  # 送入对应的设备中
+        self.build_model(args, adj)
+        self.model.to(device)
 
-        self.model = tu.dist.ddp_model(self.model, [args.local_rank])  # 分布式训练模型，好像也没有发挥作用
+        self.model = tu.dist.ddp_model(self.model, [args.local_rank])
         if args.dp_mode:
-            self.model = nn.DataParallel(self.model)  # 分布训练，单机子多显卡
+            self.model = nn.DataParallel(self.model)
             print('using dp mode')
 
-        # 模型训练所需的
         criterion = nn.MSELoss()
         self.criterion=criterion
 
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)  # 引入权重衰减的Adam
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         self.optimizer=optimizer
 
-        # 权重衰减：cos衰减
+        # Weight decay: cos decay
         lr_optimizer = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.end_epoch,eta_min=args.lr / 1000)
         self.lr_optimizer=lr_optimizer
 
-        # 早停机制
+        # Early stop
         if args.output_dir==None or args.output_dir=='None' or args.output_dir=='none':
             args.output_dir = None
-            tu.config.create_output_dir(args)  # 创建输出的目录
+            tu.config.create_output_dir(args)
             args.resume_dir=args.output_dir
 
         output_path = os.path.join(args.output_dir,args.model_name)
@@ -60,42 +55,41 @@ class EXP():
                                                           scheduler=self.lr_optimizer, patience=args.patience)
         resume_path = os.path.join(args.resume_dir,args.model_name)
         if not os.path.exists(resume_path):
-            raise print('没有找到对应的读取预训练权重的路径')
+            raise print('No corresponding path to read the pre-trained weights was found')
         resume_path = os.path.join(resume_path, args.data_name + '_best_model.pkl')
         self.resume_path = resume_path
 
         if args.resume:
-            print('加载预训练模型')
+            print('Loading pre-trained models')
             try:
                 dp_mode = args.args.dp_mode
             except AttributeError as e:
                 dp_mode = True
-            # FIXME 自动读取超参数 这里还不完善
             hparam_path = os.path.join(args.output_dir, 'hparam.yaml')
             with open(hparam_path, 'r') as f:
                 hparam_dict = yaml.load(f, yaml.FullLoader)
                 args.output_dir = hparam_dict['output_dir']
 
-            # 读取最好的权重
+            # Read the best weights
             self.load_best_model(path=self.resume_path,args=args, distributed=dp_mode)
 
-    '''建立模型'''
+    '''modelling'''
     def build_model(self,args,adj):
-        if args.model_name == 'PA2GCN':
-            args.heads = 1 # Patch Attention中使用
-            args.if_T_i_D=True # 是否使用日期编码
-            args.if_D_i_W=True # 是否使用周编码
-            args.if_node=True # 是否是节点
-            args.day_of_week_size=7 # 选取一周的n天
-            args.time_of_day_size=args.points_per_hour*24 #一天有几个时间步记录
+        if args.model_name == 'PA2MGCN':
+            args.heads = 1 # Used in Patch Attention
+            args.if_T_i_D=True # Whether to use date coding
+            args.if_D_i_W=True # Whether to use weekly codes
+            args.if_node=True # Is it a node
+            args.day_of_week_size=7 # Select n days of the week
+            args.time_of_day_size=args.points_per_hour*24 #How many time steps are recorded in a day
             args.num_layer=3
-            self.model = PA2GCN(num_nodes=args.num_nodes,pred_len=args.pred_len, num_features=args.num_features, supports=adj, args=args)
+            self.model = PA2MGCN(num_nodes=args.num_nodes,pred_len=args.pred_len, num_features=args.num_features, supports=adj, args=args)
 
 
         else:
             raise NotImplementedError
 
-    '''一个epoch下的代码'''
+    '''Code under one epoch'''
     def train_test_one_epoch(self,args,dataloader,adj,save_manager: tu.save.SaveManager,epoch,mode='train',max_iter=float('inf'),**kargs):
         if mode == 'train':
             self.model.train()
@@ -105,9 +99,9 @@ class EXP():
         else:
             raise NotImplementedError
 
-        metric_logger = tu.metric.MetricMeterLogger() # 初始化一个字典，记录对应的训练的损失结果
+        metric_logger = tu.metric.MetricMeterLogger() # Initialise a dictionary to record the loss results of the corresponding training
 
-        # Dataloader，只不过为了分布式训练因此多了部分的代码
+        # Dataloader
         for index, unpacked in enumerate(
                 metric_logger.log_every(dataloader, header=mode, desc=f'{mode} epoch {epoch}')):
             if index > max_iter:
@@ -117,68 +111,68 @@ class EXP():
             seqs_time, targets_time = seqs_time.cuda().float(), targets_time.cuda().float()
             seqs,targets=seqs.permute(0,2,3,1),targets.permute(0,2,3,1)# (B,L,C,N)
             seqs_time, targets_time = seqs_time.permute(0, 2, 3, 1), targets_time.permute(0, 2, 3, 1) #(B,C,N=1,L)
-            # TODO 模型的输入和输出的维度都是(B,C,N,L).输出的特征维度默认为1
-            self.adj = np.array(self.adj)# 如果不是array，那么送入model的时候第一个维度会被分成两半
-            pred = self.model(seqs,self.adj,seqs_time=seqs_time,targets_time=targets_time)  # 输入模型
+            # TODO The input and output dimensions of the model are both (B,C,N,L). The feature dimension of the output defaults to 1
+            self.adj = np.array(self.adj)
+            pred = self.model(seqs,self.adj,seqs_time=seqs_time,targets_time=targets_time)
 
-            # 计算损失 TODO 默认计算的是第一个特征维度
+            # 计算损失 TODO By default the first feature dimension is calculated
             targets=targets[:, 0:1, ...]
             if pred.shape[1]!=1:
                 pred=pred[:,0:1,...]
 
-            loss = self.criterion(pred.to(targets.device), targets) # 0表示的是特征只取流量这一个特征(参考DGCN的源代码)
-            # 计算MSE、MAE损失
+            loss = self.criterion(pred.to(targets.device), targets) # 0 means that the feature takes only one feature, the flow rate (refer to the source code of DGCN).
+            # Calculate MSE, MAE losses
             mse = torch.mean(torch.sum((pred - targets) ** 2, dim=1).detach())
             mae = torch.mean(torch.sum(torch.abs(pred - targets), dim=1).detach())
 
-            metric_logger.update(loss=loss, mse=mse, mae=mae)  # 更新训练记录
+            metric_logger.update(loss=loss, mse=mse, mae=mae)  # Updated training records
 
             step_logs = metric_logger.values()
             step_logs['epoch'] = epoch
-            save_manager.save_step_log(mode, **step_logs)  # 保存每一个batch的训练loss
+            save_manager.save_step_log(mode, **step_logs)  # Save the training loss for each batch
 
             if mode == 'train':
                 loss.backward()
-                # 梯度裁剪
-                if args.clip_max_norm > 0:  # 裁剪值大于0
+                # gradient cropping
+                if args.clip_max_norm > 0:  # Crop value greater than 0
                     nn.utils.clip_grad.clip_grad_norm_(self.model.parameters(), args.clip_max_norm)
                 self.optimizer.step()
                 self.optimizer.zero_grad()
 
         epoch_logs = metric_logger.get_finish_epoch_logs()
         epoch_logs['epoch'] = epoch
-        save_manager.save_epoch_log(mode, **epoch_logs)  # 保存每一个epoch的训练loss
+        save_manager.save_epoch_log(mode, **epoch_logs)  # Saving the training loss for each epoch
 
         return epoch_logs
 
     def train(self):
         args=self.agrs
         if args.resume!=True:
-            tu.config.create_output_dir(args)  # 创建输出的目录
+            tu.config.create_output_dir(args)  # Creating a directory for output
             print('output dir: {}'.format(args.output_dir))
             start_epoch = 0
         else:
             start_epoch=self.start_epoch
 
-        # 以下是保存超参数
+        # The following hyperparameters are saved
         save_manager = tu.save.SaveManager(args.output_dir, args.model_name, 'mse', compare_type='lt', ckpt_save_freq=30)
         save_manager.save_hparam(args)
 
-        max_iter = float('inf')  # 知道满足对应的条件才会停下来
+        max_iter = float('inf')
 
-        # 以下开始正式的训练
+        # Here is the start of the official training
         for epoch in range(start_epoch, args.end_epoch):
-            if tu.dist.is_dist_avail_and_initialized():  # 不进入下面的代码
+            if tu.dist.is_dist_avail_and_initialized():
                 self.train_sampler.set_epoch(epoch)
                 self.val_sampler.set_epoch(epoch)
                 self.test_sampler.set_epoch(epoch)
 
-            tu.dist.barrier()  # 分布式训练，好像也没作用
+            tu.dist.barrier()
 
             # train
             self.train_test_one_epoch(args,self.train_dataloader,self.adj, save_manager, epoch, mode='train')
 
-            self.lr_optimizer.step()  # lr衰减
+            self.lr_optimizer.step()
 
             # val
             val_logs = self.train_test_one_epoch(args, self.val_dataloader, self.adj, save_manager, epoch, mode='val')
@@ -187,11 +181,11 @@ class EXP():
             test_logs = self.train_test_one_epoch(args,self.test_dataloader,self.adj, save_manager, epoch,mode='test')
 
 
-            # 早停机制
+            # Early Stop Mechanism
             self.early_stopping(val_logs['mse'], model=self.model, epoch=epoch)
             if self.early_stopping.early_stop:
                 break
-        # 训练完成 读取最好的权重
+        # Training complete. Read the best weights.
         try:
             dp_mode = args.args.dp_mode
         except AttributeError as e:
@@ -203,12 +197,12 @@ class EXP():
     def ddp_module_replace(self,param_ckpt):
         return {k.replace('module.', ''): v.cpu() for k, v in param_ckpt.items()}
 
-    # TODO 加载最好的模型
+    # TODO Load the best model
     def load_best_model(self, path, args=None, distributed=True):
 
         ckpt_path = path
         if not os.path.exists(ckpt_path):
-            print('路径{0}不存在，模型的参数都是随机初始化的'.format(ckpt_path))
+            print('The path {0} does not exist and the parameters of the model are randomly initialised'.format(ckpt_path))
 
         ckpt = torch.load(ckpt_path)
 
@@ -231,7 +225,7 @@ class EXP():
         metric_dict=test.test(args,self.model,test_dataloader=self.test_dataloader,adj=self.adj)
         end=datetime.now()
         test_cost_time=(end-star).total_seconds()
-        print("test花费了：{0}秒".format(test_cost_time))
+        print("test took: {0} seconds.".format(test_cost_time))
         mae=metric_dict['mae']
         mse=metric_dict['mse']
         rmse=metric_dict['rmse']
@@ -251,7 +245,7 @@ class EXP():
                             'info','output_dir']]
             Write_csv.write_csv(log_path, table_head, 'w+')
 
-        time = datetime.now().strftime('%Y%m%d-%H%M%S')  # 获取当前系统时间
+        time = datetime.now().strftime('%Y%m%d-%H%M%S')  # Get the current system time
         a_log = [{'dataset': args.data_name, 'model': args.model_name, 'time': time,
                   'LR': args.lr,
                   'batch_size': args.batch_size,

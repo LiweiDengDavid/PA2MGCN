@@ -1,2 +1,2 @@
-from model.PA2GCN import *
+from model.PA2MGCN import *
 

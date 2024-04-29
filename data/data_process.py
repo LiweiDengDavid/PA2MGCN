@@ -23,10 +23,8 @@ def get_adjacency_matrix(distance_df_filename, num_of_vertices):
 
     A = np.zeros((int(num_of_vertices), int(num_of_vertices)),
                  dtype=np.float32)
-    # FIXME 这里要不要变成对称矩阵呢
     for i, j in edges:
         A[i, j] = 1
-        # TODO 测试一下变为对称矩阵后结果会不会差很多
         A[j, i] = 1
     return A
 

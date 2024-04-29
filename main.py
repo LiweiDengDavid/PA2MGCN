@@ -31,7 +31,7 @@ def add_config(parser):
     parser.add_argument('--lr', type=float, default=0.1)
     parser.add_argument('--batch_size', type=int, default=32)
     # model settings
-    parser.add_argument('--model_name', type=str, default='PA2GCN',help=['PA2GCN'])
+    parser.add_argument('--model_name', type=str, default='PA2MGCN',help=['PA2MGCN'])
     parser.add_argument('--data_name', type=str, default='METR-LA', choices=['PeMS-Bay','METR-LA','PEMS04','PEMS08'])
 
     # dataset settings

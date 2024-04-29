@@ -1,6 +1,6 @@
-# $\text{PA}^2\text{GCN}$
+# $\text{PA}^2\text{MGCN}$
 
->  $\text{PA}^2\text{GCN}$ consists of an Embedding layer, $L$ spatial-temporal blocks sequentially connected, and an FFN.  A spatial-temporal block is constructed by a Norm Layer, a gated temporal convolution (a Gated TCN module) which consists of two parallel temporal convolution layers (TCN-a and TCN-b), a gated adaptive graph convolution (Gated Adaptive Multi-Head GCN Module) which also consists of two parallel adaptive graph convolution layers(Adaptive Multi-Head GCN-a and Adaptive Multi-Head GCN-b) and a Patch Temporal Attention Module. A FFN is a FeedForward network constructed by two FC($\cdot$).                
+>  $\text{PA}^2\text{MGCN}$ consists of an Embedding layer, $L$ spatial-temporal blocks sequentially connected, and an FFN.  A spatial-temporal block is constructed by a Norm Layer, a gated temporal convolution (a Gated TCN module) which consists of two parallel temporal convolution layers (TCN-a and TCN-b), a gated adaptive graph convolution (Gated Adaptive Multi-Head GCN Module) which also consists of two parallel adaptive graph convolution layers(Adaptive Multi-Head GCN-a and Adaptive Multi-Head GCN-b) and a Patch Temporal Attention Module. A FFN is a FeedForward network constructed by two FC($\cdot$).                
 
 
 
@@ -14,9 +14,7 @@
 
 ## Main Results
 
-![](./image/result1.png)
-
-![](./image/result2.png)
+![](./image/result.jpg)
 
 
 

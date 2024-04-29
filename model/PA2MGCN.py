@@ -7,10 +7,10 @@ import torch.nn.functional as F
 
 
 device=torch.device('cuda'if torch.cuda.is_available() else 'cpu')
-class PA2GCN(nn.Module):
+class PA2MGCN(nn.Module):
     def __init__(self, num_nodes, seq_len=12,num_features=3,pred_len=12,supports=None,dropout=0.3,residual_channels=32, dilation_channels=32,
                  skip_channels=256, end_channels=512, kernel_size=2, K=3, Kt=3,**kwargs):
-        super(PA2GCN, self).__init__()
+        super(PA2MGCN, self).__init__()
         # Changing variable names
         length=seq_len
         in_dim=num_features
