@@ -49,11 +49,11 @@ def build_dataloader(args, test=False):
     if args.data_name == "PeMS-Bay" or args.data_name == "METR-LA" or args.data_name == "SZ_metro":
         # 以下两个分别是做标准化
         scaler = StandardScaler(with_mean=True, with_std=True)
-        train_dataset = scaler.fit_transform(train_dataset.reshape(-1,num_features)) # 将站点和总时间步融合起来
-        val_dataset = scaler.transform(val_dataset.reshape(-1,num_features))
-        test_dataset = scaler.transform(test_dataset.reshape(-1,num_features))
+        train_dataset = np.transpose(train_dataset.reshape(train_len,num_nodes,num_features),(0,2,1))
+        val_dataset = np.transpose(val_dataset.reshape(val_len,num_nodes,num_features),(0,2,1))
+        test_dataset = np.transpose(test_dataset.reshape(test_len,num_nodes,num_features),(0,2,1))
 
-        train_dataset = train_dataset.reshape(train_len,num_features,num_nodes)
+        train_dataset = train_dataset.reshape(train_len,num_nodes,num_features)
         val_dataset = val_dataset.reshape(val_len, num_features,num_nodes)
         test_dataset = test_dataset.reshape(test_len, num_features,num_nodes)
         mean = scaler.mean_.reshape(1, num_features,1)
@@ -69,9 +69,9 @@ def build_dataloader(args, test=False):
         val_dataset = scaler.transform(val_dataset.reshape(-1,num_features))
         test_dataset = scaler.transform(test_dataset.reshape(-1,num_features))
 
-        train_dataset = train_dataset.reshape(train_len, num_features, num_nodes)
-        val_dataset = val_dataset.reshape(val_len, num_features, num_nodes)
-        test_dataset = test_dataset.reshape(test_len, num_features, num_nodes)
+        train_dataset = np.transpose(train_dataset.reshape(train_len,num_nodes,num_features),(0,2,1))
+        val_dataset = np.transpose(val_dataset.reshape(val_len,num_nodes,num_features),(0,2,1))
+        test_dataset = np.transpose(test_dataset.reshape(test_len,num_nodes,num_features),(0,2,1))
 
         min_values = scaler.data_min_.reshape(1, num_features,1)
         max_values = scaler.data_max_.reshape(1, num_features,1)
